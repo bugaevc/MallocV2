@@ -52,7 +52,7 @@ void print_alloc_list()
     printf("NULL\n");
     printf("alloc_list = %p\n", (void*)alloc_list.head);
     printf("last_allocated = %p\n\n\n", (void*)alloc_list.tail);
-    rwlock_unlock(&alloc_list.lock);
+    rwlock_rdunlock(&alloc_list.lock);
 }
 
 void print_free_list()
@@ -74,7 +74,7 @@ void print_free_list()
     printf("NULL\n");
     printf("free = %p\n", (void*)free_list.head);
     printf("free = %p\n\n\n", (void*)free_list.tail);
-    rwlock_unlock(&free_list.lock);
+    rwlock_rdunlock(&free_list.lock);
 }
 
 static void _alloc_init()
@@ -283,7 +283,7 @@ static void* _alloc_first_fit(size_t size)
     // First, let's check the free list
     rwlock_rdlock(&free_list.lock);
     found = find_first_free(size);
-    rwlock_unlock(&free_list.lock);
+    rwlock_rdunlock(&free_list.lock);
 
     if(found != NULL)
     {
@@ -296,12 +296,12 @@ static void* _alloc_first_fit(size_t size)
             // Let's add the split block to the free list
             list_append_block(&free_list, _alloc_create_split_block(size_diff, (((uint8_t*)found->data) + size_diff)));
             num_free++;
-            rwlock_unlock(&free_list.lock);
+            rwlock_wrunlock(&free_list.lock);
         }
 
         rwlock_wrlock(&free_list.lock);
         list_delete_block(&free_list, found);
-        rwlock_unlock(&free_list.lock);
+        rwlock_wrunlock(&free_list.lock);
 
         // Now let's add the block we found to the allocated list
         rwlock_wrlock(&alloc_list.lock);
@@ -309,7 +309,7 @@ static void* _alloc_first_fit(size_t size)
         pthread_mutex_unlock(&found->lock);
         num_allocated++;
         num_free--;
-        rwlock_unlock(&alloc_list.lock);
+        rwlock_wrunlock(&alloc_list.lock);
         
         return found->data;
     }
@@ -320,7 +320,7 @@ static void* _alloc_first_fit(size_t size)
     memblk_t* block = _alloc_create_new_block(size);
     list_append_block(&alloc_list, block);
     num_allocated++;
-    rwlock_unlock(&alloc_list.lock);
+    rwlock_wrunlock(&alloc_list.lock);
 
     return block->data;
 }
@@ -334,7 +334,7 @@ static void* _alloc_best_fit(size_t size)
     // First, let's check the free list
     rwlock_rdlock(&free_list.lock);
     found = _find_best_fit(size);
-    rwlock_unlock(&free_list.lock);
+    rwlock_rdunlock(&free_list.lock);
 
     if(found != NULL)
     {
@@ -347,18 +347,18 @@ static void* _alloc_best_fit(size_t size)
             // Let's add the split block to the free list
             list_append_block(&free_list, _alloc_create_split_block(size_diff, (((uint8_t*)found->data) + size)));
             num_free++;
-            rwlock_unlock(&free_list.lock);
+            rwlock_wrunlock(&free_list.lock);
         }
 
         rwlock_wrlock(&free_list.lock);
         list_delete_block(&free_list, found);
         num_free--;
-        rwlock_unlock(&free_list.lock);
+        rwlock_wrunlock(&free_list.lock);
 
         // Now let's add the block we found to the allocated list
         rwlock_wrlock(&alloc_list.lock);
         list_append_block(&alloc_list, found);
-        rwlock_unlock(&alloc_list.lock);
+        rwlock_wrunlock(&alloc_list.lock);
         pthread_mutex_unlock(&found->lock);
 
         return found->data;
@@ -371,7 +371,7 @@ static void* _alloc_best_fit(size_t size)
     memblk_t* block = _alloc_create_new_block(size);
     list_append_block(&alloc_list, block);
     num_allocated++;
-    rwlock_unlock(&alloc_list.lock);
+    rwlock_wrunlock(&alloc_list.lock);
     
     return block->data;
 }
@@ -384,8 +384,8 @@ static void* _alloc_worst_fit(size_t size)
 
     // First, let's check the free list
     rwlock_rdlock(&free_list.lock);
-    found = _find_worst_fit(size);
-    rwlock_unlock(&free_list.lock);
+    found = _find_worst_fit();
+    rwlock_rdunlock(&free_list.lock);
 
     if(found != NULL)
     {
@@ -398,19 +398,19 @@ static void* _alloc_worst_fit(size_t size)
             // Let's add the split block to the free list
             list_append_block(&free_list, _alloc_create_split_block(size_diff, (((uint8_t*)found->data) + size)));
             num_free++;
-            rwlock_unlock(&free_list.lock);
+            rwlock_wrunlock(&free_list.lock);
         }
 
         rwlock_wrlock(&free_list.lock);
         list_delete_block(&free_list, found);
         num_free--;
-        rwlock_unlock(&free_list.lock);
+        rwlock_wrunlock(&free_list.lock);
 
         // Now let's add the block we found to the allocated list
         rwlock_wrlock(&alloc_list.lock);
         list_append_block(&alloc_list, found);
         num_allocated++;
-        rwlock_unlock(&alloc_list.lock);
+        rwlock_wrunlock(&alloc_list.lock);
         pthread_mutex_unlock(&found->lock);
 
         return found->data;
@@ -422,7 +422,7 @@ static void* _alloc_worst_fit(size_t size)
     memblk_t* block = _alloc_create_new_block(size);
     list_append_block(&alloc_list, block);
     num_allocated++;
-    rwlock_unlock(&alloc_list.lock);
+    rwlock_wrunlock(&alloc_list.lock);
     
     return block->data;
 }
@@ -477,7 +477,7 @@ void dealloc(void* chunk)
         
         block = block->next;
     }
-    rwlock_unlock(&alloc_list.lock);
+    rwlock_rdunlock(&alloc_list.lock);
 
     if(block == NULL)
     {
@@ -495,13 +495,13 @@ void dealloc(void* chunk)
         rwlock_wrlock(&alloc_list.lock);
         list_delete_block(&alloc_list, block);
         num_allocated--;
-        rwlock_unlock(&alloc_list.lock);
+        rwlock_wrunlock(&alloc_list.lock);
 
         // Now let's add it to the free list
         rwlock_wrlock(&free_list.lock);
         list_append_block(&free_list, block);
         num_free++;
-        rwlock_unlock(&free_list.lock);
+        rwlock_wrunlock(&free_list.lock);
     }
 }
 
@@ -517,7 +517,7 @@ size_t average_allocated_size()
         sum += block->size;
         block = block->next;
     }
-    rwlock_unlock(&alloc_list.lock);
+    rwlock_rdunlock(&alloc_list.lock);
 
     ret = floor(sum / num_allocated);
 
@@ -536,7 +536,7 @@ size_t average_free_size()
         sum += block->size;
         block = block->next;
     }
-    rwlock_unlock(&free_list.lock);
+    rwlock_rdunlock(&free_list.lock);
     ret = floor(sum / num_allocated);
 
     return (size_t)ret;
@@ -562,6 +562,6 @@ void print_free_block_sizes()
         printf("%ld -> ", block->size);
         block = block->next;
     }
-    rwlock_unlock(&free_list.lock);
+    rwlock_rdunlock(&free_list.lock);
     printf("\n");
 }

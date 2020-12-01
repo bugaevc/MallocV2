@@ -132,7 +132,7 @@ int rwlock_rdlock(rwlock_t* lock)
     return 0;
 }
 
-static int _rwlock_rdunlock(rwlock_t* lock)
+int rwlock_rdunlock(rwlock_t* lock)
 {
     int ret;
     if((ret = pthread_mutex_lock(&lock->lock)) != 0)
@@ -151,7 +151,7 @@ static int _rwlock_rdunlock(rwlock_t* lock)
     return 0;
 }
 
-static int _rwlock_wrunlock(rwlock_t* lock)
+int rwlock_wrunlock(rwlock_t* lock)
 {
     int ret;
     if((ret = pthread_mutex_lock(&lock->lock)) != 0)
@@ -174,17 +174,4 @@ static int _rwlock_wrunlock(rwlock_t* lock)
         return ret;
 
     return 0;
-}
-
-int rwlock_unlock(rwlock_t* lock)
-{
-    // To unlock the rwlock, it is first necessary to determine whether the caller
-    // has the lock as a reader or a writer. This is done by checking the tag of the 
-    //
-    // This is how glibc implements this without needing to separate the lock functions, which
-    // is actually rather elegant.
-    if(lock->writer_id == pthread_self())
-        return _rwlock_wrunlock(lock);
-    else
-       return _rwlock_rdunlock(lock);
 }

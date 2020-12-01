@@ -54,7 +54,8 @@ int rwlock_rdlock(rwlock_t* lock);
 
 int rwlock_wrlock(rwlock_t* lock);
 
-int rwlock_unlock(rwlock_t* lock);
+int rwlock_rdunlock(rwlock_t* lock);
 
+int rwlock_wrunlock(rwlock_t* lock);
 
 #endif
