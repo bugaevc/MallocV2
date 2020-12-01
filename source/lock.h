@@ -24,23 +24,13 @@
 #ifndef _LOCK_H_
 #define _LOCK_H
 
-#include <pthread.h>
-#include <stdint.h>
+#include "rwlock.h"
 
-#define RWLOCK_INITIALIZER { PTHREAD_MUTEX_INITIALIZER, PTHREAD_COND_INITIALIZER, PTHREAD_COND_INITIALIZER, 0, 0, 0, 0 }
+#define RWLOCK_INITIALIZER {}
 /**
  *  rwlock
  */
-typedef struct
-{
-    pthread_mutex_t     lock;           /**< Mutex lock for this rwlock */
-    pthread_cond_t      rd_cond;        /**< Condition variable */
-    pthread_cond_t      wr_cond;
-    int                 num_readers;    /**< Number of readers. If this is less than 0, than a writer(s) has the lock */
-    int                 rd_queue;
-    int                 wr_queue;
-    pthread_t           writer_id;      /**< Stores the TID of the writer */
-} rwlock_t;
+typedef RWLock rwlock_t;
 
 /**
  * Initialise an rwlock
