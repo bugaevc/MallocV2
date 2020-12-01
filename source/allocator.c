@@ -103,14 +103,14 @@ static memblk_t* _alloc_create_new_block(size_t size)
     printf("_alloc_create_new_block: creating a new block of size %ld\n", size);
 #endif
     pthread_mutex_lock(&brk_lock);
-    block       = sbrk(sizeof(memblk_t));
+    block       = (memblk*) sbrk(sizeof(memblk_t));
     if(block == (void*)-1)
     {
         printf("call to sbrk failed!\n");
         abort();
     }
     block->size = size;
-    block->data = sbrk(size);
+    block->data = (memblk*)sbrk(size);
     block->next = NULL;
     block->prev = NULL;
     int ret = pthread_mutex_init(&block->lock, NULL);
@@ -142,7 +142,7 @@ static memblk_t* _alloc_create_split_block(size_t size, void* dataptr)
     printf("_alloc_create_split_block: creating a new block of size %ld\n", size);
 #endif
     pthread_mutex_lock(&brk_lock);
-    block       = sbrk(sizeof(memblk_t));
+    block       = (memblk*)sbrk(sizeof(memblk_t));
     if(block == (void*)-1)
     {
         printf("call to sbrk failed!\n");
